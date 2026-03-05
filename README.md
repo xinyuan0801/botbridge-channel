@@ -10,12 +10,47 @@
 
 ## 安装
 
+### 方法 A：本地源码安装（推荐）
+
+如果你要在自己的 OpenClaw 环境直接安装并调试此插件，可按以下步骤：
+
 ```bash
+# 1) 获取源码（如果你已经在源码目录，可跳过）
+git clone <你的仓库地址>
+cd aitable-channel
+
+# 2) 安装依赖并构建
 npm install
 npm run build
+
+# 3) 以链接模式安装到 OpenClaw
+openclaw plugins install -l .
 ```
 
-在 OpenClaw 中以本地扩展方式加载该插件（指向本目录或打包产物）。
+### 方法 B：手动安装（可选）
+
+1. 将本目录复制到 `~/.openclaw/extensions/openclaw-botbridge`。
+2. 确保目录内至少包含：`dist/`、`openclaw.plugin.json`、`package.json`。
+3. 运行 `openclaw plugins list` 确认插件已被发现。
+
+### 安装后检查
+
+1. 在 `~/.openclaw/openclaw.json` 中将插件加入白名单：
+
+```json
+{
+  "plugins": {
+    "enabled": true,
+    "allow": ["openclaw-botbridge"]
+  }
+}
+```
+
+2. 重启 Gateway：
+
+```bash
+openclaw gateway restart
+```
 
 ## 最小配置
 
