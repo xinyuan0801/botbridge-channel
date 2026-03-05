@@ -16,8 +16,8 @@
 
 ```bash
 # 1) 获取源码（如果你已经在源码目录，可跳过）
-git clone <你的仓库地址>
-cd aitable-channel
+git clone https://github.com/xinyuan0801/botbridge-channel.git
+cd botbridge-channel
 
 # 2) 安装依赖并构建
 npm install
