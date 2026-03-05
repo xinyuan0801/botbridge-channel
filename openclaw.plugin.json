@@ -1,0 +1,114 @@
+{
+  "id": "openclaw-botbridge",
+  "name": "OpenClaw BotBridge Channel",
+  "version": "0.1.0",
+  "description": "1v1 text bridge channel plugin with webhook inbound and outbound callback",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true
+      },
+      "webhookPath": {
+        "type": "string",
+        "default": "/openclaw-botbridge/webhook"
+      },
+      "inboundToken": {
+        "type": "string"
+      },
+      "inboundSignatureHeader": {
+        "type": "string",
+        "default": "x-botbridge-signature"
+      },
+      "outboundApiUrl": {
+        "type": "string",
+        "format": "uri"
+      },
+      "outboundToken": {
+        "type": "string"
+      },
+      "requestTimeoutMs": {
+        "type": "number",
+        "minimum": 100,
+        "maximum": 60000,
+        "default": 8000
+      },
+      "retryMaxAttempts": {
+        "type": "number",
+        "minimum": 1,
+        "maximum": 10,
+        "default": 3
+      },
+      "retryBaseDelayMs": {
+        "type": "number",
+        "minimum": 10,
+        "maximum": 60000,
+        "default": 500
+      },
+      "dedupeTtlMs": {
+        "type": "number",
+        "minimum": 1000,
+        "maximum": 86400000,
+        "default": 600000
+      },
+      "maxBodyBytes": {
+        "type": "number",
+        "minimum": 1024,
+        "maximum": 10485760,
+        "default": 65536
+      },
+      "textMaxChars": {
+        "type": "number",
+        "minimum": 1,
+        "maximum": 100000,
+        "default": 8000
+      }
+    },
+    "required": ["inboundToken", "outboundApiUrl", "outboundToken"]
+  },
+  "uiHints": {
+    "enabled": {
+      "label": "Enabled"
+    },
+    "webhookPath": {
+      "label": "Webhook Path",
+      "placeholder": "/openclaw-botbridge/webhook"
+    },
+    "inboundToken": {
+      "label": "Inbound Signature Token",
+      "sensitive": true
+    },
+    "inboundSignatureHeader": {
+      "label": "Inbound Signature Header",
+      "placeholder": "x-botbridge-signature"
+    },
+    "outboundApiUrl": {
+      "label": "Outbound API URL",
+      "placeholder": "https://example.com/send"
+    },
+    "outboundToken": {
+      "label": "Outbound Bearer Token",
+      "sensitive": true
+    },
+    "requestTimeoutMs": {
+      "label": "Request Timeout (ms)"
+    },
+    "retryMaxAttempts": {
+      "label": "Retry Max Attempts"
+    },
+    "retryBaseDelayMs": {
+      "label": "Retry Base Delay (ms)"
+    },
+    "dedupeTtlMs": {
+      "label": "Deduplication TTL (ms)"
+    },
+    "maxBodyBytes": {
+      "label": "Max Body Bytes"
+    },
+    "textMaxChars": {
+      "label": "Text Max Chars"
+    }
+  }
+}

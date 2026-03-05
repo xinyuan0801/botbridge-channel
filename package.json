@@ -1,0 +1,27 @@
+{
+  "name": "openclaw-botbridge-plugin",
+  "version": "0.1.0",
+  "description": "OpenClaw channel plugin for 1v1 bot bridge via webhook and outbound REST callback",
+  "type": "module",
+  "main": "dist/index.js",
+  "files": [
+    "dist/",
+    "openclaw.plugin.json",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "openclaw": {
+    "extensions": [
+      "./dist/index.js"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}
