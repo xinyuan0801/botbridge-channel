@@ -1,5 +1,5 @@
 import { CHANNEL_ID } from "../constants.js";
-import type { PluginLogger, PluginRuntime, ReplyDispatchKind, ReplyPayload } from "../openclaw-types.js";
+import type { OpenClawConfig, PluginLogger, PluginRuntime, ReplyPayload } from "openclaw/plugin-sdk";
 import type { InboundWebhookPayload } from "../types.js";
 
 export type DispatchInboundResult = {
@@ -15,13 +15,16 @@ function extractNonEmptyText(payload: ReplyPayload): string | null {
   if (typeof payload.text !== "string") {
     return null;
   }
-  const trimmed = payload.text.trim();
+
+  // Some runtimes prepend reply tags like [[reply_to_current]]; strip for channel egress.
+  const withoutReplyTag = payload.text.replace(/^\s*\[\[[^\]]+\]\]\s*/u, "");
+  const trimmed = withoutReplyTag.trim();
   return trimmed ? trimmed : null;
 }
 
 export async function dispatchInboundTurn(params: {
   runtime: PluginRuntime;
-  cfg: unknown;
+  cfg: OpenClawConfig;
   logger: PluginLogger;
   payload: InboundWebhookPayload;
 }): Promise<DispatchInboundResult> {
@@ -34,17 +37,20 @@ export async function dispatchInboundTurn(params: {
 
   let finalText: string | null = null;
   let fallbackBlockText: string | null = null;
+  const peerId = `${CHANNEL_ID}:${params.payload.botid}`;
 
   const ctx: Record<string, unknown> = {
-    From: params.payload.botid,
-    To: CHANNEL_ID,
+    From: peerId,
+    To: peerId,
     SessionKey: `${CHANNEL_ID}:direct:${params.payload.botid}`,
     Body: params.payload.text,
     RawBody: params.payload.text,
     CommandBody: params.payload.text,
     ChatType: "direct",
+    Provider: CHANNEL_ID,
+    Surface: CHANNEL_ID,
     OriginatingChannel: CHANNEL_ID,
-    OriginatingTo: params.payload.botid,
+    OriginatingTo: peerId,
     Timestamp: params.payload.timestamp ?? Date.now(),
     MessageSid: params.payload.event_id,
   };
@@ -53,8 +59,16 @@ export async function dispatchInboundTurn(params: {
     ctx,
     cfg: params.cfg,
     dispatcherOptions: {
-      deliver: async (replyPayload, info: { kind: ReplyDispatchKind }) => {
+      deliver: async (replyPayload, info) => {
         const text = extractNonEmptyText(replyPayload);
+        params.logger.info(
+          `botbridge dispatch chunk ${JSON.stringify({
+            kind: info.kind,
+            hasText: typeof replyPayload.text === "string",
+            isReasoning: Boolean(replyPayload.isReasoning),
+            extracted: text,
+          })}`,
+        );
         if (!text) {
           return;
         }
@@ -65,6 +79,12 @@ export async function dispatchInboundTurn(params: {
         }
 
         if (info.kind === "block") {
+          fallbackBlockText = text;
+          return;
+        }
+
+        // Compatibility fallback: some runtimes may emit text on non-final/non-block kinds.
+        if (!fallbackBlockText) {
           fallbackBlockText = text;
         }
       },

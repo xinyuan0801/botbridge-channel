@@ -1,3 +1,4 @@
+import type { OpenClawConfig } from "openclaw/plugin-sdk";
 import { CHANNEL_ID, DEFAULT_WEBHOOK_PATH } from "./constants.js";
 
 export type BotBridgeConfig = {
@@ -13,6 +14,7 @@ export type BotBridgeConfig = {
   dedupeTtlMs: number;
   maxBodyBytes: number;
   textMaxChars: number;
+  debugFallbackReply: string;
 };
 
 const DEFAULTS: Omit<BotBridgeConfig, "inboundToken" | "outboundApiUrl" | "outboundToken"> = {
@@ -25,6 +27,7 @@ const DEFAULTS: Omit<BotBridgeConfig, "inboundToken" | "outboundApiUrl" | "outbo
   dedupeTtlMs: 600000,
   maxBodyBytes: 65536,
   textMaxChars: 8000,
+  debugFallbackReply: "",
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -95,7 +98,7 @@ function pickNumber(
   return fallback;
 }
 
-function sourceLayers(pluginRaw: unknown, rootConfigRaw?: unknown): Record<string, unknown>[] {
+function sourceLayers(pluginRaw: unknown, rootConfigRaw?: OpenClawConfig): Record<string, unknown>[] {
   const pluginSource = isRecord(pluginRaw) ? pluginRaw : {};
   const rootSource = isRecord(rootConfigRaw) ? rootConfigRaw : {};
 
@@ -118,7 +121,10 @@ export function normalizeWebhookPath(pathValue: string): string {
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
 }
 
-export function resolveBotBridgeConfig(pluginRaw: unknown, rootConfigRaw?: unknown): BotBridgeConfig {
+export function resolveBotBridgeConfig(
+  pluginRaw: unknown,
+  rootConfigRaw?: OpenClawConfig,
+): BotBridgeConfig {
   const sources = sourceLayers(pluginRaw, rootConfigRaw);
 
   return {
@@ -153,6 +159,7 @@ export function resolveBotBridgeConfig(pluginRaw: unknown, rootConfigRaw?: unkno
       1,
       Math.floor(pickNumber(sources, ["textMaxChars"], DEFAULTS.textMaxChars)),
     ),
+    debugFallbackReply: pickString(sources, ["debugFallbackReply"], DEFAULTS.debugFallbackReply),
   };
 }
 

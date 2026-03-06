@@ -56,6 +56,70 @@ async function startTestServer(handler: ReturnType<typeof createWebhookHandler>)
   };
 }
 
+async function startOutboundCaptureServer() {
+  const calls: Array<{
+    method: string;
+    path: string;
+    headers: {
+      authorization?: string;
+      idempotencyKey?: string;
+      contentType?: string;
+    };
+    body: Record<string, unknown>;
+  }> = [];
+
+  const server = createServer(async (req, res) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+
+    const rawBody = Buffer.concat(chunks).toString("utf8");
+    const parsedBody = JSON.parse(rawBody) as Record<string, unknown>;
+    const authorization = req.headers.authorization;
+    const idempotencyKey = req.headers["idempotency-key"];
+    const contentType = req.headers["content-type"];
+
+    calls.push({
+      method: req.method ?? "",
+      path: req.url ?? "",
+      headers: {
+        authorization: Array.isArray(authorization) ? authorization[0] : authorization,
+        idempotencyKey: Array.isArray(idempotencyKey) ? idempotencyKey[0] : idempotencyKey,
+        contentType: Array.isArray(contentType) ? contentType[0] : contentType,
+      },
+      body: parsedBody,
+    });
+
+    res.statusCode = 200;
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ ok: true }));
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    throw new Error("failed to start outbound capture server");
+  }
+
+  return {
+    url: `http://127.0.0.1:${address.port}/outbound`,
+    getCalls: () => calls,
+    close: async () =>
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        });
+      }),
+  };
+}
+
 async function waitFor(condition: () => boolean, timeoutMs = 2000): Promise<void> {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
@@ -72,6 +136,93 @@ afterEach(() => {
 });
 
 describe("createWebhookHandler", () => {
+  it("runs the full webhook to outbound flow with real HTTP callback", async () => {
+    const outboundServer = await startOutboundCaptureServer();
+
+    const handler = createWebhookHandler({
+      getConfig: () =>
+        createConfig({
+          outboundApiUrl: outboundServer.url,
+          retryBaseDelayMs: 1,
+          retryMaxAttempts: 2,
+        }),
+      logger: {
+        info: vi.fn<(message: string) => void>(),
+        warn: vi.fn<(message: string) => void>(),
+        error: vi.fn<(message: string) => void>(),
+      },
+      runtime: {
+        channel: {
+          reply: {
+            dispatchReplyWithBufferedBlockDispatcher: async (params: {
+              dispatcherOptions: {
+                deliver: (
+                  payload: { text?: string; isReasoning?: boolean },
+                  info: { kind: "tool" | "block" | "final" },
+                ) => Promise<void> | void;
+              };
+            }) => {
+              await params.dispatcherOptions.deliver(
+                { text: "robot full-chain reply", isReasoning: false },
+                { kind: "final" },
+              );
+            },
+          },
+        },
+      },
+      cfg: {},
+      traceIdFactory: () => "trace-full-chain",
+    });
+
+    const webhookServer = await startTestServer(handler);
+
+    try {
+      const rawBody = JSON.stringify({
+        event_id: "evt-full-chain-1",
+        botid: "bot-full-chain",
+        text: "hello",
+      });
+      const response = await fetch(webhookServer.url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-botbridge-signature": signBody(rawBody, "in-token"),
+        },
+        body: rawBody,
+      });
+
+      expect(response.status).toBe(202);
+      await expect(response.json()).resolves.toEqual({
+        accepted: true,
+        trace_id: "trace-full-chain",
+      });
+
+      await waitFor(() => outboundServer.getCalls().length === 1);
+      const [call] = outboundServer.getCalls();
+      expect(call).toBeDefined();
+      if (!call) {
+        throw new Error("missing outbound callback");
+      }
+
+      expect(call.method).toBe("POST");
+      expect(call.path).toBe("/outbound");
+      expect(call.headers.authorization).toBe("Bearer out-token");
+      expect(call.headers.idempotencyKey).toBe("evt-full-chain-1");
+      expect(call.headers.contentType).toContain("application/json");
+      expect(call.body).toMatchObject({
+        delivery_id: "evt-full-chain-1",
+        botid: "bot-full-chain",
+        text: "robot full-chain reply",
+        in_reply_to: "evt-full-chain-1",
+        channel: "openclaw-botbridge",
+      });
+      expect(typeof call.body.timestamp).toBe("number");
+    } finally {
+      await webhookServer.close();
+      await outboundServer.close();
+    }
+  });
+
   it("accepts valid signed request and processes asynchronously", async () => {
     const outboundCalls: OutboundCallbackPayload[] = [];
 

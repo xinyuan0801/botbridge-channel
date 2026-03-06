@@ -1,7 +1,7 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { CHANNEL_ID } from "../constants.js";
 import type { BotBridgeConfig } from "../config.js";
-import type { PluginLogger } from "../openclaw-types.js";
+import type { PluginLogger } from "openclaw/plugin-sdk";
 import type { OutboundCallbackPayload } from "../types.js";
 
 export type OutboundAttemptResult =

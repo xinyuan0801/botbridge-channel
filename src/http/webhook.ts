@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { CHANNEL_ID } from "../constants.js";
 import type { BotBridgeConfig } from "../config.js";
-import type { PluginLogger, PluginRuntime } from "../openclaw-types.js";
+import type { OpenClawConfig, PluginLogger, PluginRuntime } from "openclaw/plugin-sdk";
 import { validateInboundWebhookPayload } from "../types.js";
 import type { InboundWebhookPayload, OutboundCallbackPayload } from "../types.js";
 import { dispatchInboundTurn } from "../bridge/dispatch.js";
@@ -40,7 +40,7 @@ async function processInboundMessage(params: {
   config: BotBridgeConfig;
   logger: PluginLogger;
   runtime: PluginRuntime;
-  cfg: unknown;
+  cfg: OpenClawConfig;
   sendOutbound: (params: {
     config: BotBridgeConfig;
     payload: OutboundCallbackPayload;
@@ -49,7 +49,7 @@ async function processInboundMessage(params: {
   }) => Promise<OutboundAttemptResult>;
   dispatchInbound: (params: {
     runtime: PluginRuntime;
-    cfg: unknown;
+    cfg: OpenClawConfig;
     logger: PluginLogger;
     payload: InboundWebhookPayload;
   }) => Promise<{ selectedText: string | null }>;
@@ -64,7 +64,9 @@ async function processInboundMessage(params: {
       payload,
     });
 
-    if (!dispatchResult.selectedText) {
+    const selectedText = dispatchResult.selectedText ?? config.debugFallbackReply;
+
+    if (!selectedText) {
       logger.info(
         `botbridge no reply text produced ${JSON.stringify({
           trace_id: traceId,
@@ -75,10 +77,20 @@ async function processInboundMessage(params: {
       return;
     }
 
+    if (!dispatchResult.selectedText && config.debugFallbackReply) {
+      logger.warn(
+        `botbridge using debugFallbackReply ${JSON.stringify({
+          trace_id: traceId,
+          event_id: payload.event_id,
+          botid: payload.botid,
+        })}`,
+      );
+    }
+
     const outboundPayload: OutboundCallbackPayload = {
       delivery_id: payload.event_id,
       botid: payload.botid,
-      text: dispatchResult.selectedText,
+      text: selectedText,
       in_reply_to: payload.event_id,
       timestamp: Date.now(),
       channel: CHANNEL_ID,
@@ -120,7 +132,7 @@ export function createWebhookHandler(params: {
   getConfig: () => BotBridgeConfig;
   logger: PluginLogger;
   runtime: PluginRuntime;
-  cfg: unknown;
+  cfg: OpenClawConfig;
   dedupeStore?: DedupeStore;
   queue?: PerKeySerialQueue;
   traceIdFactory?: () => string;
@@ -132,7 +144,7 @@ export function createWebhookHandler(params: {
   }) => Promise<OutboundAttemptResult>;
   dispatchInbound?: (params: {
     runtime: PluginRuntime;
-    cfg: unknown;
+    cfg: OpenClawConfig;
     logger: PluginLogger;
     payload: InboundWebhookPayload;
   }) => Promise<{ selectedText: string | null }>;

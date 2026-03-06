@@ -2,6 +2,50 @@ import { describe, expect, it, vi } from "vitest";
 import { dispatchInboundTurn } from "../src/bridge/dispatch.js";
 
 describe("dispatchInboundTurn", () => {
+  it("builds normalized direct context for runtime dispatch", async () => {
+    const dispatch = vi.fn(async () => {});
+
+    await dispatchInboundTurn({
+      runtime: {
+        channel: {
+          reply: {
+            dispatchReplyWithBufferedBlockDispatcher: dispatch,
+          },
+        },
+      },
+      cfg: {},
+      logger: {
+        info: vi.fn<(message: string) => void>(),
+        warn: vi.fn<(message: string) => void>(),
+        error: vi.fn<(message: string) => void>(),
+      },
+      payload: {
+        event_id: "evt-ctx",
+        botid: "bot-ctx",
+        text: "hello ctx",
+      },
+    });
+
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(dispatch.mock.calls[0]?.[0]).toMatchObject({
+      ctx: {
+        From: "openclaw-botbridge:bot-ctx",
+        To: "openclaw-botbridge:bot-ctx",
+        SessionKey: "openclaw-botbridge:direct:bot-ctx",
+        Body: "hello ctx",
+        RawBody: "hello ctx",
+        CommandBody: "hello ctx",
+        ChatType: "direct",
+        Provider: "openclaw-botbridge",
+        Surface: "openclaw-botbridge",
+        OriginatingChannel: "openclaw-botbridge",
+        OriginatingTo: "openclaw-botbridge:bot-ctx",
+        MessageSid: "evt-ctx",
+      },
+      cfg: {},
+    });
+  });
+
   it("prefers final reply text over block text", async () => {
     const dispatch = vi.fn(async (params: {
       dispatcherOptions: {

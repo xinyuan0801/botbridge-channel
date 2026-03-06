@@ -2,7 +2,7 @@ import { CHANNEL_ID } from "./constants.js";
 import { createChannelPlugin } from "./channel.js";
 import { missingRequiredConfig, resolveBotBridgeConfig } from "./config.js";
 import { createWebhookHandler } from "./http/webhook.js";
-import type { OpenClawPluginApi } from "./openclaw-types.js";
+import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 
 export default function register(api: OpenClawPluginApi): void {
   const getConfig = () => resolveBotBridgeConfig(api.pluginConfig ?? {}, api.config);
@@ -18,7 +18,6 @@ export default function register(api: OpenClawPluginApi): void {
   const channelPlugin = createChannelPlugin({
     getConfig,
     logger: api.logger,
-    api,
   });
 
   api.registerChannel({ plugin: channelPlugin });

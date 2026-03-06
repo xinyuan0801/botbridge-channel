@@ -8,6 +8,10 @@
 - 出站 REST 回调到你的应用
 - 事件去重与按 `botid` 串行处理
 
+## 架构图
+
+- [项目架构图](./docs/ARCHITECTURE.md)
+
 ## 安装
 
 ### 方法 A：本地源码安装（推荐）
@@ -163,4 +167,10 @@ Content-Type: application/json
 
 ```bash
 npm test
+```
+
+仅执行“Webhook -> Outbound 回调”全链路闭环测试：
+
+```bash
+npm test -- tests/webhook.test.ts -t "full webhook to outbound flow"
 ```
